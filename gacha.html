@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>ガチャ期待値シミュレーター</title>
+  <style>
+    body { font-family: system-ui, sans-serif; line-height: 1.6; padding: 20px; }
+    fieldset { margin-bottom: 16px; }
+    label { display: block; margin: 6px 0; }
+    button { padding: 8px 14px; font-size: 14px; }
+    pre { background: #f5f5f5; padding: 12px; }
+  </style>
+</head>
+<body>
+<h1>ガチャ期待値シミュレーター</h1>
+
+<fieldset>
+  <legend>目標設定</legend>
+  <label>
+    対象レアリティ
+    <select id="targetRarity">
+      <option value="4c">☆4 キャラ（PU3種）</option>
+      <option value="5c">☆5 キャラ（PU1種）</option>
+      <option value="4w">☆4 武器（PU3種）</option>
+      <option value="5w">☆5 武器（PU1種）</option>
+    </select>
+  </label>
+  <label>
+    必要人数
+    <input type="number" id="targetCount" value="7" min="1" />
+  </label>
+</fieldset>
+
+<fieldset>
+  <legend>シミュレーション設定</legend>
+  <label>
+    試行回数
+    <input type="number" id="trials" value="20000" min="1000" step="1000" />
+  </label>
+</fieldset>
+
+<button id="runBtn">計算する</button>
+
+<h2>結果</h2>
+<pre id="output">未実行</pre>
+
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+
+  document.getElementById('runBtn').addEventListener('click', runSimulation);
+
+  function simulateOnce(targetType, targetCount) {
+    let pulls = 0;
+    let got = 0;
+
+    let cnt4 = 1;
+    let cnt5 = 1;
+    let forcePick4 = false;
+    let forcePick5 = false;
+
+    // Radianceカウンター（☆5キャラ専用）
+    let radiance = 1; // 初期値1, 範囲0〜3
+
+    const isWeapon = targetType.endsWith('w');
+
+    while (got < targetCount && pulls < 50000) {
+      pulls++;
+
+      // ☆5確率
+      let p5;
+      if (!isWeapon) {
+        p5 = (cnt5 <= 73)
+          ? 0.006
+          : Math.min(1.0, 0.006 + 0.06 * (cnt5 - 73));
+      } else {
+        p5 = (cnt5 <= 62)
+          ? 0.007
+          : Math.min(1.0, 0.007 + 0.07 * (cnt5 - 62));
+      }
+
+      // ☆4確率
+      let p4;
+      if (!isWeapon) {
+        if (cnt4 <= 8) p4 = 0.051;
+        else if (cnt4 === 9) p4 = 0.561;
+        else p4 = 1.0;
+      } else {
+        if (cnt4 <= 7) p4 = 0.06;
+        else if (cnt4 === 8) p4 = 0.66;
+        else p4 = 1.0;
+      }
+
+      const got5 = Math.random() < p5;
+      const got4 = !got5 && Math.random() < p4;
+
+      if (got5) {
+        cnt5 = 1;
+        cnt4++;
+
+        let isPick = false;
+
+        if (!isWeapon && targetType === '5c' && !forcePick5) {
+          // ☆5キャラ: Radianceカウンター考慮
+          let rate = 0.5;
+          if (radiance === 2) rate = 0.55;
+          if (radiance === 3) rate = 1.0;
+
+          isPick = Math.random() < rate;
+
+          if (radiance === 3) {
+            radiance = 1; // 強制PU後は1に戻す
+          } else {
+            if (isPick) radiance = Math.max(0, radiance - 1);
+            else radiance = Math.min(3, radiance + 1);
+          }
+
+        } else {
+          // 通常の50/50 or 武器
+          const pickRate5 = isWeapon ? 0.375 : 0.5;
+          isPick = forcePick5 || Math.random() < pickRate5;
+        }
+
+        // 確定PU消費時はRadiance不干渉
+        if (forcePick5) forcePick5 = false;
+        else if (!isPick) forcePick5 = true;
+
+        if (isPick && (targetType === '5c' || targetType === '5w')) {
+          got++;
+        }
+
+      } else if (got4) {
+        cnt4 = 1;
+        cnt5++;
+
+        const pickRate4 = isWeapon ? 0.75 : 0.5;
+        const isPick = forcePick4 || Math.random() < pickRate4;
+        forcePick4 = !isPick;
+
+        if (isPick && (targetType === '4c' || targetType === '4w')) {
+          if (Math.random() < 1 / 3) {
+            got++;
+          }
+        }
+
+      } else {
+        cnt4++;
+        cnt5++;
+      }
+    }
+
+    return pulls;
+  }
+
+  function runSimulation() {
+    const targetRarity = document.getElementById('targetRarity').value;
+    const targetCount = Number(document.getElementById('targetCount').value);
+    const trials = Number(document.getElementById('trials').value);
+
+    const results = [];
+
+    for (let i = 0; i < trials; i++) {
+      results.push(simulateOnce(targetRarity, targetCount));
+    }
+
+    results.sort((a, b) => a - b);
+
+    const mean = results.reduce((a, b) => a + b, 0) / trials;
+    const median = results[Math.floor(trials / 2)];
+    const p10 = results[Math.floor(trials * 0.1)];
+    const p90 = results[Math.floor(trials * 0.9)];
+    const p01 = results[Math.floor(trials * 0.01)];
+    const p99 = results[Math.floor(trials * 0.99)];
+
+    document.getElementById('output').textContent =
+      `試行回数: ${trials}\n` +
+      `期待値（平均）: ${mean.toFixed(1)} 回\n` +
+      `中央値: ${median} 回\n` +
+      `01%点: ${p01} 回\n` +
+      `10%点: ${p10} 回\n` +
+      `90%点: ${p90} 回\n` +
+      `99%点: ${p99} 回`;
+  }
+
+});
+</script>
+</body>
+</html>
