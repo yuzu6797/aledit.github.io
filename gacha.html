@@ -9,6 +9,7 @@
     label { display: block; margin: 6px 0; }
     button { padding: 8px 14px; font-size: 14px; }
     pre { background: #f5f5f5; padding: 12px; }
+    select, option, input[type="number"] { font-size: 20px; }
   </style>
 </head>
 <body>
@@ -27,7 +28,7 @@
   </label>
   <label>
     必要人数
-    <input type="number" id="targetCount" value="7" min="1" />
+    <input type="number" id="targetCount" value="7" min="1" step="1" />
   </label>
 </fieldset>
 
@@ -183,5 +184,37 @@ window.addEventListener('DOMContentLoaded', () => {
 
 });
 </script>
+
+<script>
+const input = document.getElementById("targetCount");
+
+input.addEventListener("wheel", e => {
+  e.preventDefault(); // スクロール防止
+
+  const step = Number(input.step) || 1;
+  const value = Number(input.value) || 0;
+
+  input.value = e.deltaY < 0
+    ? value + step   // 上スクロール
+    : value - step;  // 下スクロール
+});
+</script>
+
+<script>
+const select = document.getElementById("targetRarity");
+
+select.addEventListener("wheel", e => {
+  e.preventDefault();
+
+  const dir = e.deltaY > 0 ? 1 : -1;
+  const next = select.selectedIndex + dir;
+
+  if (next >= 0 && next < select.options.length) {
+    select.selectedIndex = next;
+    select.dispatchEvent(new Event("change")); // 必要なら
+  }
+});
+</script>
+
 </body>
 </html>
