@@ -17,18 +17,20 @@
 
 <fieldset>
   <legend>目標設定</legend>
+
   <label>
     対象レアリティ
     <select id="targetRarity">
       <option value="4c">☆4 キャラ（PU3種）</option>
-      <option value="5c">☆5 キャラ（PU1種）</option>
+      <option value="5c" selected>☆5 キャラ（PU1種）</option>
       <option value="4w">☆4 武器（PU3種）</option>
       <option value="5w">☆5 武器（PU1種）</option>
     </select>
   </label>
+
   <label>
-    必要人数
-    <input type="number" id="targetCount" value="7" min="1" step="1" />
+    必要数
+    <input type="number" id="targetCount" value="1" min="1" />
   </label>
 </fieldset>
 
@@ -37,6 +39,41 @@
   <label>
     試行回数
     <input type="number" id="trials" value="20000" min="1000" step="1000" />
+  </label>
+</fieldset>
+
+<fieldset>
+  <legend>開始状態</legend>
+
+  <label>
+    直前の☆5ですり抜け済み（次回☆5PU確定）
+    <input type="checkbox" id="forcePick5Start" />
+  </label>
+
+  <label>
+    ☆5キャラ天井カウント（0〜89）
+    <input type="number" id="start5c" value="0" min="0" max="89" />
+  </label>
+
+  <label>
+    ☆4キャラ天井カウント（0〜9）
+    <input type="number" id="start4c" value="0" min="0" max="9" />
+  </label>
+
+  <label>
+    ☆5武器天井カウント（0〜76）
+    <input type="number" id="start5w" value="0" min="0" max="76" />
+  </label>
+
+  <label>
+    ☆4武器天井カウント（0〜8）
+    <input type="number" id="start4w" value="0" min="0" max="8" />
+  </label>
+
+  <label>
+    掴みし明光カウント（0〜3）
+    <input type="number" id="radiance" value="1" min="0" max="3" />
+    <br>※すり抜ける度に1増加、すり抜けずにピックアップを引く度に1減少。<br>3で確定ピックアップ、その後1に戻る。
   </label>
 </fieldset>
 
@@ -50,17 +87,30 @@ window.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('runBtn').addEventListener('click', runSimulation);
 
-  function simulateOnce(targetType, targetCount) {
+  function simulateOnce(targetType, targetCount, startState) {
     let pulls = 0;
     let got = 0;
 
-    let cnt4 = 1;
-    let cnt5 = 1;
+    let cnt4;
+    let cnt5;
+
+    if (targetType === '4c' || targetType === '5c') {
+      cnt4 = startState.start4c + 1;
+      cnt5 = startState.start5c + 1;
+    } else {
+      cnt4 = startState.start4w + 1;
+      cnt5 = startState.start5w + 1;
+    }
     let forcePick4 = false;
-    let forcePick5 = false;
+    let forcePick5 = startState.forcePick5Start;
 
     // Radianceカウンター（☆5キャラ専用）
-    let radiance = 1; // 初期値1, 範囲0〜3
+    let radiance = startState.radiance;
+
+    // 50/50敗北済みならRadiance最低1
+    if (forcePick5 && radiance < 1) {
+      radiance = 1;
+    }
 
     const isWeapon = targetType.endsWith('w');
 
@@ -160,7 +210,16 @@ window.addEventListener('DOMContentLoaded', () => {
     const results = [];
 
     for (let i = 0; i < trials; i++) {
-      results.push(simulateOnce(targetRarity, targetCount));
+      const startState = {
+        start5c: Number(document.getElementById('start5c').value),
+        start4c: Number(document.getElementById('start4c').value),
+        start5w: Number(document.getElementById('start5w').value),
+        start4w: Number(document.getElementById('start4w').value),
+        radiance: Number(document.getElementById('radiance').value),
+        forcePick5Start: document.getElementById('forcePick5Start').checked
+      };
+
+      results.push(simulateOnce(targetRarity, targetCount, startState));
     }
 
     results.sort((a, b) => a - b);
