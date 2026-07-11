@@ -229,16 +229,20 @@ window.addEventListener('DOMContentLoaded', () => {
     const p10 = results[Math.floor(trials * 0.1)];
     const p90 = results[Math.floor(trials * 0.9)];
     const p01 = results[Math.floor(trials * 0.01)];
+    const p001 = results[Math.floor(trials * 0.001)];
     const p99 = results[Math.floor(trials * 0.99)];
+    const p999 = results[Math.floor(trials * 0.999)];
 
     document.getElementById('output').textContent =
       `試行回数: ${trials}\n` +
       `期待値（平均）: ${mean.toFixed(1)} 回\n` +
       `中央値: ${median} 回\n` +
+      `超絶幸運（上位0.1%）: ${p001} 回\n` +
       `超幸運（上位1%）: ${p01} 回\n` +
       `幸運（上位10%）: ${p10} 回\n` +
       `不運（下位10%）: ${p90} 回\n` +
-      `超不運（下位1%）: ${p99} 回`;
+      `超不運（下位1%）: ${p99} 回` +
+      `超絶不運（下位0.1%）: ${p999} 回`;
   }
 
 });
